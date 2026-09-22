@@ -20,7 +20,6 @@
   --rule: #D2DBE6;
   --cell-line: #C8D2DF;
   --box-line: #1B2433;
-  --margin: #EDB2BE;
   --code-bg: #F1F5FA;
 
   --blue: #1E44C8;
@@ -59,7 +58,6 @@
     --rule: #283343;
     --cell-line: #2B3647;
     --box-line: #75839A;
-    --margin: #5A2D39;
     --code-bg: #101720;
     --blue: #93ABFF;
     --blue-tint: #1C2746;
@@ -90,7 +88,6 @@
   --rule: #283343;
   --cell-line: #2B3647;
   --box-line: #75839A;
-  --margin: #5A2D39;
   --code-bg: #101720;
   --blue: #93ABFF;
   --blue-tint: #1C2746;
@@ -144,14 +141,6 @@ button { font: inherit; color: inherit; }
   padding-inline: var(--pad);
   padding-block: 48px 72px;
 }
-.sheet::before {
-  content: "";
-  position: absolute;
-  top: 0; bottom: 0;
-  right: calc(var(--pad) + var(--mw) + var(--gap) / 2);
-  width: 2px;
-  background: var(--margin);
-}
 .row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--mw);
@@ -200,9 +189,8 @@ h3 { font-size: 1.08rem; font-weight: 600; line-height: 1.35; }
 
 @media (max-width: 960px) {
   .sheet { --pad: 16px; padding-block: 32px 56px; }
-  .sheet::before { display: none; }
   .row { grid-template-columns: minmax(0, 1fr); }
-  .row > .note { grid-column: 1; margin-block: 14px 4px; padding-left: 14px; border-left: 2px solid var(--margin); }
+  .row > .note { grid-column: 1; margin-block: 14px 4px; padding-left: 14px; border-left: 2px solid var(--rule); }
   section.row { margin-top: 64px; }
 }
 
