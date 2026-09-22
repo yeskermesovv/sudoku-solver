@@ -1,0 +1,1913 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Судоку перебором с возвратом</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* ---------- Tokens ---------- */
+:root {
+  color-scheme: light;
+  --paper: #F4F7FB;
+  --grid: #E2E9F2;
+  --card: #FFFFFF;
+  --ink: #172030;
+  --ink-2: #445063;
+  --ink-3: #6B778A;
+  --rule: #D2DBE6;
+  --cell-line: #C8D2DF;
+  --box-line: #1B2433;
+  --margin: #EDB2BE;
+  --code-bg: #F1F5FA;
+
+  --blue: #1E44C8;
+  --blue-tint: #E3E9FB;
+  --red: #C92D36;
+  --red-tint: #FBE3E4;
+  --amber: #A86400;
+  --amber-tint: #FBEDD3;
+  --green: #137550;
+  --green-tint: #DCF1E6;
+  --hl: #FFE873;
+  --peer: #ECF1F8;
+
+  --t-kw: #7A3BA6;
+  --t-fn: #0C6977;
+  --t-num: #A24A00;
+  --t-str: #2C7430;
+  --t-com: #737F92;
+
+  --shadow: 0 1px 0 rgba(23, 32, 48, .04), 0 10px 28px -16px rgba(23, 32, 48, .28);
+
+  --f-display: 'Unbounded', 'Golos Text', system-ui, sans-serif;
+  --f-body: 'Golos Text', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --f-hand: 'Caveat', 'Segoe Print', 'Comic Sans MS', cursive;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0E131A;
+    --grid: #161E29;
+    --card: #141B25;
+    --ink: #E3E9F1;
+    --ink-2: #AEB8C6;
+    --ink-3: #808B9C;
+    --rule: #283343;
+    --cell-line: #2B3647;
+    --box-line: #75839A;
+    --margin: #5A2D39;
+    --code-bg: #101720;
+    --blue: #93ABFF;
+    --blue-tint: #1C2746;
+    --red: #FF7B7F;
+    --red-tint: #3B1E23;
+    --amber: #F2B24E;
+    --amber-tint: #3A2B13;
+    --green: #62D39C;
+    --green-tint: #15322A;
+    --hl: #5E5112;
+    --peer: #19222F;
+    --t-kw: #CFA6F5;
+    --t-fn: #80D4E0;
+    --t-num: #F4B073;
+    --t-str: #9DD48D;
+    --t-com: #7F8A9B;
+    --shadow: 0 1px 0 rgba(0, 0, 0, .3), 0 12px 30px -16px rgba(0, 0, 0, .7);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0E131A;
+  --grid: #161E29;
+  --card: #141B25;
+  --ink: #E3E9F1;
+  --ink-2: #AEB8C6;
+  --ink-3: #808B9C;
+  --rule: #283343;
+  --cell-line: #2B3647;
+  --box-line: #75839A;
+  --margin: #5A2D39;
+  --code-bg: #101720;
+  --blue: #93ABFF;
+  --blue-tint: #1C2746;
+  --red: #FF7B7F;
+  --red-tint: #3B1E23;
+  --amber: #F2B24E;
+  --amber-tint: #3A2B13;
+  --green: #62D39C;
+  --green-tint: #15322A;
+  --hl: #5E5112;
+  --peer: #19222F;
+  --t-kw: #CFA6F5;
+  --t-fn: #80D4E0;
+  --t-num: #F4B073;
+  --t-str: #9DD48D;
+  --t-com: #7F8A9B;
+  --shadow: 0 1px 0 rgba(0, 0, 0, .3), 0 12px 30px -16px rgba(0, 0, 0, .7);
+}
+
+/* ---------- Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { background: var(--paper); }
+body {
+  margin: 0;
+  color: var(--ink);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  font: 400 17px/1.6 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+p { margin: 0; }
+a { color: var(--blue); }
+code, kbd { font-family: var(--f-mono); font-size: .86em; }
+:not(pre) > code { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0 .3em; white-space: nowrap; }
+kbd { border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 .35em; background: var(--card); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* ---------- Sheet: main column + notebook margin ---------- */
+.sheet {
+  --mw: 220px;
+  --gap: 56px;
+  --pad: 24px;
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-inline: var(--pad);
+  padding-block: 48px 72px;
+}
+.sheet::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  right: calc(var(--pad) + var(--mw) + var(--gap) / 2);
+  width: 2px;
+  background: var(--margin);
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--mw);
+  column-gap: var(--gap);
+  align-items: start;
+}
+.row > * { grid-column: 1; }
+.row > .note { grid-column: 2; }
+.row > .wide { grid-column: 1 / -1; }
+section.row { margin-top: 88px; }
+
+.prose { display: grid; gap: 16px; max-width: 70ch; }
+.prose p { color: var(--ink); }
+
+.note {
+  position: relative;
+  font: 600 21px/1.25 var(--f-hand);
+  color: var(--ink-2);
+  padding-top: 4px;
+}
+.note b { color: var(--ink); font-weight: 700; }
+
+.eyebrow {
+  font: 600 12px/1.2 var(--f-mono);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: clamp(2rem, 1.1rem + 3.4vw, 3.5rem);
+  line-height: 1.06;
+  letter-spacing: -.025em;
+}
+h2 {
+  font-family: var(--f-display);
+  font-weight: 500;
+  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -.015em;
+}
+h3 { font-size: 1.08rem; font-weight: 600; line-height: 1.35; }
+.head { display: grid; gap: 12px; margin-bottom: 18px; }
+
+@media (max-width: 960px) {
+  .sheet { --pad: 16px; padding-block: 32px 56px; }
+  .sheet::before { display: none; }
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .row > .note { grid-column: 1; margin-block: 14px 4px; padding-left: 14px; border-left: 2px solid var(--margin); }
+  section.row { margin-top: 64px; }
+}
+
+/* ---------- Hero ---------- */
+.hero .prose { gap: 22px; max-width: 46rem; }
+.lede { font-size: 1.16rem; line-height: 1.55; color: var(--ink-2); }
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 6px;
+  margin-top: 8px;
+}
+.strip .it { display: grid; justify-items: center; gap: 8px; width: 116px; text-align: center; }
+.strip .arrow { align-self: flex-start; margin-top: 14px; color: var(--ink-3); font: 400 20px/1 var(--f-mono); }
+.strip .cap { font-size: 13px; line-height: 1.3; color: var(--ink-2); }
+.demo-cell {
+  width: 52px; height: 52px;
+  display: grid; place-items: center;
+  border: 2px solid var(--box-line);
+  background: var(--card);
+  font: 700 34px/1 var(--f-hand);
+}
+.demo-cell.k-select { background: var(--hl); color: var(--ink-3); font: 600 22px/1 var(--f-mono); }
+.demo-cell.k-reject { color: var(--red); text-decoration: line-through; text-decoration-thickness: 2px; background: var(--red-tint); }
+.demo-cell.k-place { color: var(--blue); }
+.demo-cell.k-erase { color: var(--amber); text-decoration: line-through; text-decoration-thickness: 2px; background: var(--amber-tint); opacity: .85; }
+
+/* ---------- Figures ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 22px;
+  margin: 28px 0 0;
+  min-width: 0;
+}
+.figcap { margin-top: 14px; font-size: 14px; color: var(--ink-3); }
+
+/* ---------- Board ---------- */
+.bwrap {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-rows: 16px auto;
+  gap: 4px;
+  width: min(100%, var(--bw, 460px));
+}
+.bwrap .lt, .bwrap .ll { display: grid; font: 400 10px/1 var(--f-mono); color: var(--ink-3); }
+.bwrap .lt { grid-column: 2; grid-template-columns: repeat(var(--n), 1fr); align-items: end; }
+.bwrap .ll { grid-row: 2; grid-template-rows: repeat(var(--n), 1fr); align-items: center; }
+.bwrap .lt span, .bwrap .ll span { text-align: center; }
+.bwrap .board { grid-column: 2; grid-row: 2; }
+.board {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  grid-template-rows: repeat(var(--n), 1fr);
+  aspect-ratio: 1;
+  width: 100%;
+  border: 2px solid var(--box-line);
+  background: var(--card);
+  user-select: none;
+}
+.cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid var(--cell-line);
+  border-bottom: 1px solid var(--cell-line);
+  background: transparent;
+  color: var(--ink);
+  appearance: none;
+}
+.cell.xr { border-right: 0; }
+.cell.xb { border-bottom: 0; }
+.cell.br { border-right: 2px solid var(--box-line); }
+.cell.bb { border-bottom: 2px solid var(--box-line); }
+.cell .v {
+  font: 500 calc(100cqi / var(--n) * .5)/1 var(--f-body);
+  font-variant-numeric: tabular-nums;
+}
+.cell.placed .v, .cell.reject .v, .cell.erase .v {
+  font: 700 calc(100cqi / var(--n) * .72)/1 var(--f-hand);
+}
+.cell.placed .v { color: var(--blue); }
+.cell.peer { background: var(--peer); }
+.cell.bad { background: var(--red-tint); }
+.cell.sel, .cell.cur { background: var(--hl); }
+.cell.clash { box-shadow: inset 0 0 0 2px var(--red); }
+.cell.clash .v { color: var(--red); }
+.cell.reject .v { color: var(--red); text-decoration: line-through; text-decoration-thickness: 2px; }
+.cell.erase { background: var(--amber-tint); }
+.cell.erase .v { color: var(--amber); text-decoration: line-through; text-decoration-thickness: 2px; opacity: .8; }
+.cell.dead { background: var(--amber-tint); box-shadow: inset 0 0 0 2px var(--amber); }
+.cell.win .v { color: var(--green); }
+.cell.win { background: var(--green-tint); }
+.anim .cell.cur.place .v { animation: ink .32s ease-out; }
+.anim .cell.cur.reject .v { animation: nope .3s ease-out; }
+@keyframes ink { from { opacity: 0; transform: translateY(-4px) scale(1.18); } }
+@keyframes nope { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.pm {
+  position: absolute; inset: 7%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  place-items: center;
+  font: 400 calc(100cqi / var(--n) * .21)/1 var(--f-mono);
+  color: var(--ink-3);
+}
+button.cell { cursor: pointer; }
+button.cell:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
+
+/* ---------- Kinds (shared colour language) ---------- */
+[data-k] { --k: var(--ink-3); --kt: var(--code-bg); }
+[data-k="select"] { --k: var(--ink); --kt: var(--hl); }
+[data-k="reject"] { --k: var(--red); --kt: var(--red-tint); }
+[data-k="place"] { --k: var(--blue); --kt: var(--blue-tint); }
+[data-k="erase"], [data-k="dead"] { --k: var(--amber); --kt: var(--amber-tint); }
+[data-k="solved"] { --k: var(--green); --kt: var(--green-tint); }
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 600 11px/1 var(--f-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--k);
+  background: var(--kt);
+  padding: 5px 8px;
+  border-radius: 4px;
+}
+[data-k="select"] .tag, .tag[data-k="select"] { color: var(--ink); }
+
+/* ---------- Controls ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 500 14px/1 var(--f-body);
+  padding: 9px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--card); min-width: 104px; justify-content: center; }
+.btn.primary:hover { opacity: .9; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.icon { padding: 9px 10px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pills button {
+  font: 500 14px/1 var(--f-body);
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.pills button:hover { border-color: var(--ink-3); color: var(--ink); }
+.pills button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--card); }
+.speed { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); }
+.speed input { width: 140px; accent-color: var(--blue); }
+.speed output { font: 400 13px/1 var(--f-mono); min-width: 8ch; color: var(--ink); }
+.counter { font: 400 13px/1.2 var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.lbl { font: 600 11px/1.2 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+
+/* ---------- Narration ---------- */
+.narr {
+  display: grid; gap: 8px; align-content: start;
+  background: var(--code-bg);
+  border-radius: 6px;
+  padding: 12px 14px;
+  min-height: 7.4em;
+}
+.narr p { font-size: 15.5px; line-height: 1.5; }
+.hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font: 400 12.5px/1.35 var(--f-mono); color: var(--ink-3); }
+.hist li { display: flex; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist li::before { content: ""; flex: none; width: 7px; height: 7px; margin-top: 5px; border-radius: 2px; background: var(--k); }
+.hist li:last-child { color: var(--ink); }
+
+/* ---------- Code ---------- */
+.code {
+  margin: 0;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 10px 0;
+  overflow-x: auto;
+  font: 400 13px/1.62 var(--f-mono);
+  tab-size: 4;
+}
+.code .ln { display: block; padding-right: 16px; white-space: pre; min-width: max-content; }
+.code .gut {
+  display: inline-block; width: 3.2em; padding-right: 1em; text-align: right;
+  color: var(--ink-3); opacity: .7; user-select: none;
+}
+.code .ln.hot { background: var(--kt); }
+.code .ln.hot .gut { color: var(--k); opacity: 1; font-weight: 600; }
+.code .ln.hot .gut::before { content: "▸"; margin-right: 3px; }
+.code .st {
+  display: inline-grid; place-items: center;
+  width: 17px; height: 17px; border-radius: 50%;
+  font: 600 10px/1 var(--f-mono);
+  background: var(--card); border: 1px solid var(--rule); color: var(--ink-2);
+}
+.code .ln.lit { background: var(--blue-tint); }
+.code .ln.lit .st { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.t-kw { color: var(--t-kw); }
+.t-fn { color: var(--t-fn); }
+.t-num { color: var(--t-num); }
+.t-str { color: var(--t-str); }
+.t-com { color: var(--t-com); font-style: italic; }
+.t-bi { color: var(--t-fn); }
+.tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.tabs button {
+  font: 600 12px/1 var(--f-mono);
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--rule); background: var(--code-bg); }
+
+/* ---------- Rules figure ---------- */
+.rules-fig { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 32px; align-items: start; }
+.rules-fig .bwrap { --bw: 440px; }
+.inspect { display: grid; gap: 16px; align-content: start; }
+.why { display: grid; gap: 8px; margin: 0; }
+.why div { display: grid; grid-template-columns: 7.5em 1fr; gap: 12px; align-items: baseline; }
+.why dt { color: var(--ink-3); font-size: 14px; }
+.why dd { margin: 0; font: 600 15px/1.4 var(--f-mono); letter-spacing: .12em; }
+.digits { display: flex; flex-wrap: wrap; gap: 6px; }
+.digits span {
+  width: 34px; height: 38px; display: grid; place-items: center;
+  border: 1px solid var(--rule); border-radius: 5px;
+  font: 700 26px/1 var(--f-hand);
+}
+.digits .no { color: var(--ink-3); opacity: .55; text-decoration: line-through; }
+.digits .yes { color: var(--blue); background: var(--blue-tint); border-color: transparent; }
+.verdict { font-size: 15.5px; color: var(--ink-2); }
+.check { display: inline-flex; gap: 10px; align-items: center; font-size: 15px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--blue); margin: 0; }
+
+/* ---------- Tree figure ---------- */
+.tree-fig { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 32px; align-items: start; }
+.tree-fig .left { display: grid; gap: 14px; }
+.tree-fig .bwrap { --bw: 300px; }
+.tree-box { overflow-x: auto; }
+.tree { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+.tree text { font-family: var(--f-mono); }
+.tree .rowlab { font-size: 11px; fill: var(--ink-3); }
+.tree .rowlab.on { fill: var(--ink); font-weight: 600; }
+.tree .band { fill: transparent; }
+.tree .band.on { fill: var(--hl); opacity: .55; }
+.tree .edge { fill: none; stroke: var(--rule); stroke-width: 1.4; stroke-dasharray: 3 4; }
+.tree .edge.on { stroke: var(--blue); stroke-dasharray: none; stroke-width: 1.8; }
+.tree .edge.dead { stroke: var(--amber); stroke-dasharray: none; opacity: .5; }
+.tree .edge.won { stroke: var(--green); stroke-dasharray: none; stroke-width: 2.6; }
+.tree .node circle { fill: var(--card); stroke: var(--rule); stroke-width: 1.4; stroke-dasharray: 3 3; }
+.tree .node text { font: 700 21px/1 var(--f-hand); fill: transparent; }
+.tree .node.on circle { stroke: var(--blue); stroke-dasharray: none; stroke-width: 1.8; }
+.tree .node.on text { fill: var(--blue); }
+.tree .node.cur circle { fill: var(--hl); }
+.tree .node.dead circle { stroke: var(--amber); stroke-dasharray: none; opacity: .6; }
+.tree .node.dead text { fill: var(--amber); opacity: .7; }
+.tree .node.won circle { stroke: var(--green); stroke-width: 2.4; stroke-dasharray: none; fill: var(--green-tint); }
+.tree .node.won text { fill: var(--green); }
+.tree .node.root circle { stroke: var(--ink-3); stroke-dasharray: none; fill: var(--card); }
+.tree .node.root text { font: 600 10px/1 var(--f-mono); fill: var(--ink-3); }
+.tree .mark text { font: 600 15px/1 var(--f-mono); fill: transparent; }
+.tree .mark.x.on text { fill: var(--red); }
+.tree .mark.ok.on text { fill: var(--green); font-size: 17px; }
+.tree .mark rect { fill: transparent; }
+.tree .mark.x.on rect { fill: var(--red-tint); }
+.tree .mark.ok.on rect { fill: var(--green-tint); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); margin-top: 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--k); background: var(--kt); display: inline-block; }
+.legend i.ghost { border: 1.5px dashed var(--rule); background: transparent; }
+
+/* ---------- Steps ---------- */
+.steps-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: s; }
+.steps li {
+  display: grid; grid-template-columns: 44px 1fr; gap: 4px 14px;
+  padding: 14px 14px 14px 10px;
+  border-radius: 8px;
+  cursor: default;
+  outline: none;
+}
+.steps li:hover, .steps li:focus-visible, .steps li.lit { background: var(--card); box-shadow: var(--shadow); }
+.steps li:focus-visible { outline: 2px solid var(--blue); outline-offset: 0; }
+.steps .num {
+  grid-row: span 2;
+  font: 600 28px/1 var(--f-display);
+  color: var(--ink);
+  padding-top: 2px;
+  text-align: center;
+}
+.steps h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.steps p { font-size: 15.5px; color: var(--ink-2); line-height: 1.55; }
+.sticky { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); display: grid; gap: 6px; }
+
+/* ---------- Lab ---------- */
+.lab { display: grid; gap: 20px; padding: 22px; }
+.lab-top { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start; }
+.lab-top > div { display: grid; gap: 8px; }
+.custom { display: grid; gap: 8px; }
+.custom .rowx { display: flex; flex-wrap: wrap; gap: 8px; }
+.custom input {
+  flex: 1 1 320px; min-width: 0;
+  font: 400 13px/1.2 var(--f-mono);
+  padding: 9px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--ink);
+}
+.custom .err { color: var(--red); font-size: 14px; }
+.custom .hint { color: var(--ink-3); font-size: 13px; }
+.lab-grid { display: grid; grid-template-columns: minmax(0, 470px) minmax(0, 1fr); gap: 28px; align-items: start; }
+.lab-left { display: grid; gap: 14px; }
+.lab-left .bwrap { --bw: 470px; }
+.lab-right { display: grid; gap: 18px; align-content: start; min-width: 0; }
+.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.stats div { display: grid; gap: 4px; }
+.stats dt { font: 600 10.5px/1.2 var(--f-mono); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.stats dd { margin: 0; font: 600 19px/1.1 var(--f-body); font-variant-numeric: tabular-nums; }
+.stats small { font-size: 12px; color: var(--ink-3); font-weight: 400; }
+.stack { display: flex; flex-wrap: wrap; gap: 4px; min-height: 30px; }
+.stack:empty::before { content: "пусто — ни одного вызова solve()"; font-size: 13px; color: var(--ink-3); align-self: center; }
+.chip {
+  min-width: 25px; height: 29px; padding: 0 4px;
+  display: inline-grid; place-items: center;
+  border: 1px solid var(--rule); border-radius: 4px;
+  font: 700 19px/1 var(--f-hand);
+  color: var(--blue);
+  background: var(--card);
+}
+.chip.top { background: var(--kt); border-color: var(--k); color: var(--k); }
+.chip.top[data-k="select"] { color: var(--ink); }
+.lab-bottom { display: grid; gap: 14px; }
+.lab-bar { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+.timeline { position: relative; cursor: pointer; touch-action: none; border-radius: 6px; background: var(--code-bg); border: 1px solid var(--rule); }
+.timeline canvas { display: block; width: 100%; height: 96px; }
+.timeline .tl { position: absolute; font: 400 10.5px/1 var(--f-mono); color: var(--ink-3); pointer-events: none; }
+.timeline .tl.a { left: 8px; top: 7px; }
+.timeline .tl.b { right: 8px; bottom: 6px; }
+.timeline .tl.c { left: 8px; bottom: 6px; }
+
+/* ---------- Tables, lists ---------- */
+.tbl-wrap { overflow-x: auto; margin-top: 24px; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 15px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
+th { font: 600 11px/1.3 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td small { display: block; color: var(--ink-3); font-size: 13px; }
+tbody tr:hover { background: var(--card); }
+.ideas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 24px; }
+.idea { display: grid; gap: 10px; align-content: start; }
+.idea.lead { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px 28px; }
+.idea.lead .txt { display: grid; gap: 12px; align-content: start; }
+.idea p { font-size: 15.5px; color: var(--ink-2); }
+.idea .card { margin: 0; }
+footer.row { margin-top: 88px; }
+footer p { font-size: 14px; color: var(--ink-3); max-width: 70ch; }
+
+@media (max-width: 1080px) {
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .rules-fig, .tree-fig, .lab-grid, .steps-wrap, .idea.lead { grid-template-columns: minmax(0, 1fr); }
+  .rules-fig .bwrap, .tree-fig .bwrap, .lab-left .bwrap { justify-self: center; }
+  .sticky { position: static; }
+}
+@media (max-width: 640px) {
+  .ideas { grid-template-columns: minmax(0, 1fr); }
+  .card { padding: 16px; }
+  .lab { padding: 16px; }
+  .strip .it { width: 96px; }
+  .strip .arrow { display: none; }
+  .speed input { width: 110px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="sheet" lang="ru">
+
+  <!-- ============ HERO ============ -->
+  <header class="row hero">
+    <div class="prose">
+      <p class="eyebrow">Алгоритмы · backtracking</p>
+      <h1>Решаем судоку перебором с&nbsp;возвратом</h1>
+      <p class="lede">Backtracking — это метод проб и ошибок, только аккуратный: пишем цифру карандашом, идём дальше, а если зашли в тупик — стираем ластиком и пробуем следующую. Ниже алгоритм разобран по шагам, и каждый шаг можно увидеть своими глазами.</p>
+      <div class="strip" aria-label="Четыре действия алгоритма">
+        <div class="it"><div class="demo-cell k-select">?</div><span class="cap">Выбрать пустую клетку</span></div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="it"><div class="demo-cell k-reject">4</div><span class="cap">Проверить цифру: конфликт</span></div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="it"><div class="demo-cell k-place">7</div><span class="cap">Поставить подходящую</span></div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="it"><div class="demo-cell k-erase">7</div><span class="cap">Стереть, если впереди тупик</span></div>
+      </div>
+    </div>
+    <aside class="note">По-русски backtracking называют <b>поиском с возвратом</b>. Эти четыре цвета — жёлтый, красный, синий и оранжевый — встречаются на всей странице.</aside>
+  </header>
+
+  <!-- ============ RULES ============ -->
+  <section class="row" id="rules" aria-labelledby="h-rules">
+    <div class="head">
+      <p class="eyebrow">Правила</p>
+      <h2 id="h-rules">Когда цифру можно поставить</h2>
+    </div>
+    <div class="prose">
+      <p>Поле 9×9 разбито на девять квадратов 3×3. Цифру можно поставить в пустую клетку, только если такой цифры ещё нет ни в её <b>строке</b>, ни в её <b>столбце</b>, ни в её <b>квадрате</b>. Других правил нет, и весь алгоритм держится на этой одной проверке.</p>
+      <p>Нажмите на любую клетку: подсветятся её соседи, а справа будет видно, какие цифры уже заняты. Всё, что осталось, называют <b>кандидатами</b>.</p>
+    </div>
+    <aside class="note">У каждой клетки <b>20 соседей</b>: 8 по строке, 8 по столбцу и ещё 4 в квадрате.</aside>
+
+    <figure class="card wide rules-fig" id="rules-fig">
+      <div id="rules-board"></div>
+      <div class="inspect" aria-live="polite">
+        <h3 id="ins-title">Клетка (5,5)</h3>
+        <dl class="why" id="ins-why"></dl>
+        <div class="digits" id="ins-digits"></div>
+        <p class="verdict" id="ins-verdict"></p>
+        <label class="check"><input type="checkbox" id="pm-toggle"> Показать кандидатов во всех пустых клетках</label>
+      </div>
+    </figure>
+  </section>
+
+  <!-- ============ IDEA / TREE ============ -->
+  <section class="row" id="idea" aria-labelledby="h-idea">
+    <div class="head">
+      <p class="eyebrow">Идея</p>
+      <h2 id="h-idea">Пробуем, а в тупике возвращаемся</h2>
+    </div>
+    <div class="prose">
+      <p>Самый прямолинейный способ — перебрать все способы заполнить пустые клетки и проверить каждый. В головоломке выше 51 пустая клетка, значит, вариантов 9<sup>51</sup> ≈ 4,6·10<sup>48</sup>. Даже миллиард проверок в секунду не управится с этим за всё время существования Вселенной.</p>
+      <p>Перебор с возвратом заполняет клетки <b>по одной</b> и проверяет правила сразу после каждой цифры. Как только цифра нарушает правило, все продолжения этой ветки отбрасываются разом, их даже не нужно рассматривать. А если в какой-то клетке не подходит ни одна цифра, значит, ошибка была раньше: алгоритм возвращается к предыдущей клетке и меняет её цифру.</p>
+      <p>Это удобно рисовать деревом: уровень — очередная пустая клетка, ветка — поставленная в неё цифра. Алгоритм обходит дерево в глубину. Вот он на маленьком судоку 4×4 (цифры 1–4, квадраты 2×2):</p>
+    </div>
+    <aside class="note">А на деле перебор с возвратом ставит цифру в ту головоломку всего <b>4 208 раз</b>.</aside>
+
+    <figure class="card wide tree-fig" id="tree-fig">
+      <div class="left">
+        <div id="mini-board"></div>
+        <div class="narr" id="mini-narr" data-k="start" aria-live="polite"></div>
+        <div class="controls">
+          <button class="btn icon" id="mini-reset" aria-label="В начало" title="В начало"><svg viewBox="0 0 16 16"><path d="M1.5 3h2v10h-2zM9 3v10L3.8 8zM15 3v10L9.8 8z"/></svg></button>
+          <button class="btn icon" id="mini-back" aria-label="Шаг назад" title="Шаг назад"><svg viewBox="0 0 16 16"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg></button>
+          <button class="btn primary" id="mini-play"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg><span>Пуск</span></button>
+          <button class="btn" id="mini-step">Шаг <svg viewBox="0 0 16 16"><path d="M11 3h2v10h-2zM3 3v10l7-5z"/></svg></button>
+        </div>
+        <p class="counter" id="mini-counter"></p>
+      </div>
+      <div>
+        <div class="tree-box"><svg class="tree" id="tree" role="img" aria-label="Дерево поиска для судоку 4×4"></svg></div>
+        <div class="legend">
+          <span data-k="place"><i></i>поставлена</span>
+          <span data-k="select"><i></i>текущая</span>
+          <span data-k="erase"><i></i>стёрта (откат)</span>
+          <span data-k="solved"><i></i>путь к решению</span>
+          <span><i class="ghost"></i>ещё не посещена</span>
+        </div>
+        <p class="figcap">Слева от дерева — клетка, которую заполняет каждый уровень. <b style="color:var(--red)">×</b> — в клетке не подошла ни одна цифра.</p>
+      </div>
+    </figure>
+    <div class="prose" style="margin-top:24px">
+      <p>Посмотрите на длинный откат в середине: неверная цифра в первой клетке обнаруживается только на несколько уровней ниже, и алгоритм поднимается обратно по дереву, стирая всё, что успел поставить после неё.</p>
+    </div>
+  </section>
+
+  <!-- ============ STEPS ============ -->
+  <section class="row" id="steps" aria-labelledby="h-steps">
+    <div class="head">
+      <p class="eyebrow">Алгоритм</p>
+      <h2 id="h-steps">Алгоритм за пять шагов</h2>
+    </div>
+    <div class="prose">
+      <p>Решение удобно записать рекурсивно: функция <code>solve(board)</code> заполняет одну клетку, а остальную доску поручает самой себе. Наведите курсор на шаг (или выберите его клавишей <kbd>Tab</kbd>), чтобы увидеть его строки в коде.</p>
+    </div>
+    <aside class="note">Каждый незаконченный вызов <b>solve()</b> помнит свою клетку и цифру, на которой остановился. Стек вызовов — это и есть память алгоритма.</aside>
+
+    <div class="wide steps-wrap" style="margin-top:28px">
+      <ol class="steps" id="steps-list">
+        <li tabindex="0" data-ids="find done"><span class="num">1</span><h3>Найти пустую клетку <span class="tag" data-k="select">выбор</span></h3><p>Идём по строкам слева направо и берём первую клетку с нулём. Если пустых клеток нет, доска заполнена без нарушений — решение найдено. Это базовый случай рекурсии.</p></li>
+        <li tabindex="0" data-ids="loop"><span class="num">2</span><h3>Перебрать цифры по порядку</h3><p>Для найденной клетки пробуем цифры 1, 2, …, 9 — одну за другой.</p></li>
+        <li tabindex="0" data-ids="check"><span class="num">3</span><h3>Проверить правила <span class="tag" data-k="reject">конфликт</span></h3><p>Цифры не должно быть в строке, столбце и квадрате 3×3. Если она там есть, сразу переходим к следующей. Эта проверка и отсекает огромные части дерева.</p></li>
+        <li tabindex="0" data-ids="place recurse"><span class="num">4</span><h3>Поставить цифру и уйти глубже <span class="tag" data-k="place">ставим</span></h3><p>Записываем цифру и вызываем <code>solve()</code> для оставшейся доски. Если вызов вернул <code>True</code>, дальше всё сложилось — передаём <code>True</code> наверх.</p></li>
+        <li tabindex="0" data-ids="erase fail"><span class="num">5</span><h3>Откатиться <span class="tag" data-k="erase">откат</span></h3><p>Если вызов вернул <code>False</code>, цифра оказалась ошибкой: стираем её и пробуем следующую. Если не подошла ни одна из девяти, возвращаем <code>False</code>, и свою цифру меняет уже предыдущая клетка.</p></li>
+      </ol>
+      <div class="sticky">
+        <div class="tabs" role="tablist" data-tabs></div>
+        <pre class="code" data-code="steps"></pre>
+        <p class="figcap" style="margin-top:4px">Функции <code>is_valid</code> и <code>find_empty</code> — в полном коде в конце страницы.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAB ============ -->
+  <section class="row" id="lab-sec" aria-labelledby="h-lab">
+    <div class="head">
+      <p class="eyebrow">Визуализация</p>
+      <h2 id="h-lab">Алгоритм в работе</h2>
+    </div>
+    <div class="prose">
+      <p>Здесь тот же код работает на настоящем судоку 9×9. Одно нажатие «Шаг» — одно действие алгоритма: выбор клетки, проверка цифры, запись или откат. Справа подсвечивается выполняемая строка и виден стек вызовов, а внизу — график глубины рекурсии за весь прогон. Каждый провал графика вниз — это откат. По графику можно щёлкнуть, чтобы перейти к любому моменту.</p>
+    </div>
+    <aside class="note"><b>Пробел</b> — пуск и пауза, <b>← →</b> — шаг назад и вперёд. Сначала щёлкните внутри визуализатора.</aside>
+
+    <figure class="card wide lab" id="lab" tabindex="-1">
+      <div class="lab-top">
+        <div>
+          <span class="lbl" id="lbl-puz">Головоломка</span>
+          <div class="pills" id="puz-pills" role="group" aria-labelledby="lbl-puz"></div>
+        </div>
+        <div>
+          <span class="lbl" id="lbl-mode">Какую клетку брать</span>
+          <div class="pills" id="mode-pills" role="group" aria-labelledby="lbl-mode">
+            <button type="button" data-mode="naive" aria-pressed="true">Первую пустую</button>
+            <button type="button" data-mode="mrv" aria-pressed="false">С наименьшим числом кандидатов</button>
+          </div>
+        </div>
+      </div>
+      <div class="custom" id="custom" hidden>
+        <div class="rowx">
+          <input id="custom-input" type="text" spellcheck="false" autocomplete="off" aria-label="Своя головоломка: 81 символ" placeholder="81 символ по строкам: цифры 1–9, а для пустых клеток 0 или точка">
+          <button class="btn" id="custom-go" type="button">Загрузить</button>
+        </div>
+        <p class="hint">Пробелы и переносы строк можно не убирать. Пример: <code>530070000600195000…</code></p>
+        <p class="err" id="custom-err" hidden></p>
+      </div>
+
+      <div class="lab-grid">
+        <div class="lab-left">
+          <div id="lab-board"></div>
+          <div class="narr" id="lab-narr" data-k="start" aria-live="polite"></div>
+          <ol class="hist" id="lab-hist" aria-label="Последние шаги"></ol>
+        </div>
+        <div class="lab-right">
+          <dl class="stats" id="lab-stats"></dl>
+          <div>
+            <div class="tabs" role="tablist" data-tabs></div>
+            <pre class="code" data-code="lab" id="lab-code"></pre>
+          </div>
+          <div style="display:grid; gap:8px">
+            <span class="lbl">Стек вызовов: клетки и цифры на пути от корня</span>
+            <div class="stack" id="lab-stack"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lab-bottom">
+        <div class="lab-bar">
+          <div class="controls">
+            <button class="btn icon" id="lab-reset" aria-label="В начало" title="В начало"><svg viewBox="0 0 16 16"><path d="M1.5 3h2v10h-2zM9 3v10L3.8 8zM15 3v10L9.8 8z"/></svg></button>
+            <button class="btn icon" id="lab-back" aria-label="Шаг назад" title="Шаг назад (←)"><svg viewBox="0 0 16 16"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg></button>
+            <button class="btn primary" id="lab-play"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg><span>Пуск</span></button>
+            <button class="btn" id="lab-step" title="Шаг вперёд (→)">Шаг <svg viewBox="0 0 16 16"><path d="M11 3h2v10h-2zM3 3v10l7-5z"/></svg></button>
+            <button class="btn icon" id="lab-end" aria-label="В конец" title="В конец"><svg viewBox="0 0 16 16"><path d="M1 3v10l5.2-5zM7 3v10l5.2-5zM12.5 3h2v10h-2z"/></svg></button>
+          </div>
+          <label class="speed" for="lab-speed">Скорость <input type="range" id="lab-speed" min="0" max="100" value="21"> <output id="lab-speed-out">10 шаг/с</output></label>
+          <span class="counter" id="lab-counter"></span>
+        </div>
+        <div class="timeline" id="timeline" tabindex="0" role="slider" aria-label="Позиция в записи алгоритма" aria-valuemin="0">
+          <canvas id="tl-canvas"></canvas>
+          <span class="tl a">глубина рекурсии</span>
+          <span class="tl c">0</span>
+          <span class="tl b" id="tl-total"></span>
+        </div>
+      </div>
+    </figure>
+  </section>
+
+  <!-- ============ COST ============ -->
+  <section class="row" id="cost" aria-labelledby="h-cost">
+    <div class="head">
+      <p class="eyebrow">Сложность</p>
+      <h2 id="h-cost">Сколько шагов нужно</h2>
+    </div>
+    <div class="prose">
+      <p>В худшем случае перебор с возвратом экспоненциален: <b>O(9<sup>m</sup>)</b>, где m — число пустых клеток. Памяти нужно мало, <b>O(m)</b>: глубина рекурсии никогда не превышает число пустых клеток. На практике отсечение делает перебор быстрым, но многое зависит от головоломки. «Шаг» в таблице — то же действие, что и в визуализаторе.</p>
+    </div>
+    <aside class="note">Худший случай и реальность отличаются на десятки порядков — всё благодаря ранней проверке.</aside>
+
+    <div class="wide tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Головоломка</th><th class="n">Пустых</th><th class="n">Все варианты</th><th class="n">Первая пустая:<br>расстановок / шагов</th><th class="n">Меньше кандидатов:<br>расстановок / шагов</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Лёгкая<small>Project Euler, задача 96</small></td><td class="n">49</td><td class="n">≈ 5,7·10<sup>46</sup></td><td class="n">200 / 2 108</td><td class="n">49 / 296</td></tr>
+          <tr><td>Средняя<small>пример из Википедии</small></td><td class="n">51</td><td class="n">≈ 4,6·10<sup>48</sup></td><td class="n">4 208 / 50 175</td><td class="n">51 / 291</td></tr>
+          <tr><td>Сложная<small>Арто Инкала, 2012</small></td><td class="n">60</td><td class="n">≈ 1,8·10<sup>57</sup></td><td class="n">49 558 / 594 333</td><td class="n">10 101 / 120 849</td></tr>
+          <tr><td>Против перебора<small>составлена против порядка 1…9</small></td><td class="n">64</td><td class="n">≈ 1,2·10<sup>61</sup></td><td class="n">69 175 316 / 830 103 418</td><td class="n">45 267 / 542 830</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose" style="margin-top:24px">
+      <p>Последняя головоломка составлена специально против перебора по порядку: в её решении первая строка — 9 8 7 6 5 4 3 2 1, и алгоритм, который пробует цифры начиная с единицы, долго блуждает по неверным веткам. Визуализатор записывает не больше 2 миллионов шагов, поэтому этот прогон там обрывается. Попробуйте ту же головоломку со стратегией «С наименьшим числом кандидатов».</p>
+    </div>
+  </section>
+
+  <!-- ============ SPEED-UPS ============ -->
+  <section class="row" id="faster" aria-labelledby="h-faster">
+    <div class="head">
+      <p class="eyebrow">Улучшения</p>
+      <h2 id="h-faster">Как сделать быстрее</h2>
+    </div>
+    <div class="prose">
+      <p>Каркас алгоритма остаётся прежним — меняется то, в каком порядке идти и как быстро проверять.</p>
+    </div>
+
+    <div class="wide ideas">
+      <div class="idea lead">
+        <div class="txt">
+          <h3>Сначала самые трудные клетки</h3>
+          <p>Вместо первой пустой клетки выбираем ту, где меньше всего кандидатов. Этот приём называют MRV (minimum remaining values). Если кандидат один, ошибиться нельзя. Если кандидатов ноль, тупик виден сразу, а не через десять уровней. На средней головоломке это сокращает 50 175 шагов до 291, и откатов не остаётся вовсе.</p>
+          <p><button class="btn" id="try-mrv" type="button">Открыть в визуализаторе</button></p>
+        </div>
+        <div>
+          <div class="tabs" role="tablist" data-tabs></div>
+          <pre class="code" data-code="best"></pre>
+        </div>
+      </div>
+      <div class="idea">
+        <h3>Распространение ограничений</h3>
+        <p>После каждой записи сразу вычёркиваем цифру из кандидатов соседей, а клетки с единственным кандидатом заполняем без перебора — как делает человек. Лёгкие судоку так решаются вообще без возвратов.</p>
+      </div>
+      <div class="idea">
+        <h3>Битовые маски</h3>
+        <p>Для каждой строки, столбца и квадрата храним 9-битную маску занятых цифр. Тогда <code>is_valid</code> — это одна операция <code>&amp;</code> вместо 27 сравнений, а кандидаты клетки — <code>~(row | col | box)</code>.</p>
+      </div>
+      <div class="idea">
+        <h3>Точное покрытие</h3>
+        <p>Судоку — частный случай задачи о точном покрытии. Алгоритм X Кнута со структурой Dancing Links («танцующие ссылки») решает её тем же поиском с возвратом, но откатывается за O(1).</p>
+      </div>
+      <div class="idea">
+        <h3>Порядок цифр</h3>
+        <p>Перебирать сначала цифры, которые реже встречаются у соседей. Для «анти-переборной» головоломки один только обратный порядок 9…1 превращает десятки миллионов шагов в мгновенное решение.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FULL CODE ============ -->
+  <section class="row" id="code" aria-labelledby="h-code">
+    <div class="head">
+      <p class="eyebrow">Код</p>
+      <h2 id="h-code">Полный код</h2>
+    </div>
+    <div class="prose">
+      <p>Всё вместе занимает меньше 40 строк. Доска — список из девяти строк по девять чисел, ноль означает пустую клетку. Индексы в коде начинаются с нуля, а на картинках выше клетки подписаны с единицы: (строка, столбец).</p>
+    </div>
+    <div class="wide" style="margin-top:22px">
+      <div class="tabs" role="tablist" data-tabs></div>
+      <pre class="code" data-code="full"></pre>
+    </div>
+  </section>
+
+  <footer class="row">
+    <p>Головоломки: задача 96 из Project Euler, пример из статьи «Судоку» в Википедии, судоку Арто Инкалы и пример из английской Википедии, составленный против перебора. Все подсчёты шагов сделаны тем же кодом, что работает в визуализаторе.</p>
+  </footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* =========================================================
+   Data
+   ========================================================= */
+const PUZZLES = {
+  easy:   { name: 'Лёгкая',          src: '003020600900305001001806400008102900700000008006708200002609500800203009005010300' },
+  medium: { name: 'Средняя',         src: '530070000600195000098000060800060003400803001700020006060000280000419005000080079' },
+  hard:   { name: 'Сложная',         src: '800000000003600000070090200050007000000045700000100030001000068008500010090000400' },
+  anti:   { name: 'Против перебора', src: '000000000000003085001020000000507000004000100090000000500000073002010000000040009' },
+};
+const MINI = '0204000204000041';
+const CAP = 2000000;
+
+const SELECT = 1, REJECT = 2, PLACE = 3, ERASE = 4, DEAD = 5, SOLVED = 6;
+const KIND = { 0: 'start', 1: 'select', 2: 'reject', 3: 'place', 4: 'erase', 5: 'dead', 6: 'solved' };
+const LINE = { 1: 'find', 2: 'check', 3: 'place', 4: 'erase', 5: 'fail', 6: 'done' };
+const TAG = { start: 'старт', select: 'выбор клетки', reject: 'конфликт', place: 'ставим', erase: 'откат', dead: 'тупик', solved: 'решено', capped: 'лимит' };
+
+const fmt = n => n.toLocaleString('ru-RU');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* =========================================================
+   Geometry
+   ========================================================= */
+const GEO = {};
+function geo(N) {
+  if (GEO[N]) return GEO[N];
+  const B = N === 9 ? 3 : 2, NN = N * N;
+  const row = new Uint8Array(NN), col = new Uint8Array(NN), box = new Uint8Array(NN);
+  const rows = [], cols = [], boxes = [];
+  for (let k = 0; k < N; k++) { rows.push([]); cols.push([]); boxes.push([]); }
+  for (let i = 0; i < NN; i++) {
+    const r = (i / N) | 0, c = i % N, b = ((r / B) | 0) * B + ((c / B) | 0);
+    row[i] = r; col[i] = c; box[i] = b;
+    rows[r].push(i); cols[c].push(i); boxes[b].push(i);
+  }
+  return (GEO[N] = { N, B, NN, row, col, box, rows, cols, boxes });
+}
+const cn = (i, N) => `(${((i / N) | 0) + 1},${(i % N) + 1})`;
+
+function conflict(board, G, i, d) {
+  let u = G.rows[G.row[i]];
+  for (let k = 0; k < G.N; k++) if (board[u[k]] === d) return u[k];
+  u = G.cols[G.col[i]];
+  for (let k = 0; k < G.N; k++) if (board[u[k]] === d) return u[k];
+  u = G.boxes[G.box[i]];
+  for (let k = 0; k < G.N; k++) if (board[u[k]] === d) return u[k];
+  return -1;
+}
+
+/* =========================================================
+   Engine: run backtracking once and record every action
+   ========================================================= */
+function record(cells, N, mode) {
+  const G = geo(N);
+  const board = Uint8Array.from(cells);
+  let size = 4096, len = 0, depth = 0, lastCount = 0;
+  let T = new Uint8Array(size), C = new Uint8Array(size), D = new Uint8Array(size), A = new Uint8Array(size), H = new Uint8Array(size);
+  function grow() {
+    size *= 2;
+    const g = a => { const b = new Uint8Array(size); b.set(a); return b; };
+    T = g(T); C = g(C); D = g(D); A = g(A); H = g(H);
+  }
+  function push(t, c, d, a) {
+    if (len === size) grow();
+    T[len] = t; C[len] = c; D[len] = d; A[len] = a; H[len] = depth; len++;
+  }
+  function pick() {
+    if (mode !== 'mrv') {
+      for (let i = 0; i < G.NN; i++) if (board[i] === 0) return i;
+      return -1;
+    }
+    let best = -1, bestCount = N + 1;
+    for (let i = 0; i < G.NN; i++) {
+      if (board[i] !== 0) continue;
+      let n = 0;
+      for (let d = 1; d <= N; d++) if (conflict(board, G, i, d) < 0) n++;
+      if (n < bestCount) { best = i; bestCount = n; if (n === 0) break; }
+    }
+    lastCount = bestCount;
+    return best;
+  }
+  const STOP = {};
+  function solve() {
+    const i = pick();
+    if (i < 0) { push(SOLVED, 0, 0, 0); return true; }
+    depth++;
+    push(SELECT, i, 0, mode === 'mrv' ? lastCount : 0);
+    for (let d = 1; d <= N; d++) {
+      if (len >= CAP) throw STOP;
+      const k = conflict(board, G, i, d);
+      if (k >= 0) { push(REJECT, i, d, k); continue; }
+      board[i] = d; push(PLACE, i, d, 0);
+      if (solve()) return true;
+      board[i] = 0; push(ERASE, i, d, 0);
+    }
+    depth--;
+    push(DEAD, i, 0, 0);
+    return false;
+  }
+  let solved = false, capped = false;
+  try { solved = solve(); } catch (e) { if (e !== STOP) throw e; capped = true; }
+  let empties = 0, givens = 0;
+  for (let i = 0; i < G.NN; i++) cells[i] ? givens++ : empties++;
+  return { N, cells: Uint8Array.from(cells), mode, T, C, D, A, H, len, solved, capped, empties, givens };
+}
+
+/* =========================================================
+   Replay: board state at any position, with checkpoints
+   ========================================================= */
+class Replay {
+  constructor(run) {
+    this.run = run;
+    const NN = run.N * run.N, S = NN + 1, K = (this.K = 512);
+    this.NN = NN; this.S = S;
+    this.board = Uint8Array.from(run.cells);
+    this.sc = new Uint8Array(S); this.sd = new Uint8Array(S);
+    this.depth = 0; this.cnt = new Uint32Array(4); this.pos = 0;
+    const n = Math.floor(run.len / K) + 1;
+    this.cpB = new Uint8Array(n * NN); this.cpSc = new Uint8Array(n * S); this.cpSd = new Uint8Array(n * S);
+    this.cpDepth = new Uint8Array(n); this.cpCnt = new Uint32Array(n * 4);
+    for (let p = 0; p <= run.len; p++) {
+      if (p % K === 0) this.save(p / K);
+      if (p < run.len) this.apply(p);
+    }
+    this.restore(0);
+  }
+  save(j) {
+    this.cpB.set(this.board, j * this.NN); this.cpSc.set(this.sc, j * this.S); this.cpSd.set(this.sd, j * this.S);
+    this.cpDepth[j] = this.depth; this.cpCnt.set(this.cnt, j * 4);
+  }
+  restore(j) {
+    this.board.set(this.cpB.subarray(j * this.NN, (j + 1) * this.NN));
+    this.sc.set(this.cpSc.subarray(j * this.S, (j + 1) * this.S));
+    this.sd.set(this.cpSd.subarray(j * this.S, (j + 1) * this.S));
+    this.depth = this.cpDepth[j]; this.cnt.set(this.cpCnt.subarray(j * 4, j * 4 + 4));
+    this.pos = j * this.K;
+  }
+  apply(k) {
+    const r = this.run;
+    switch (r.T[k]) {
+      case SELECT: this.sc[this.depth] = r.C[k]; this.sd[this.depth] = 0; this.depth++; break;
+      case REJECT: this.sd[this.depth - 1] = r.D[k]; this.cnt[0]++; break;
+      case PLACE: this.board[r.C[k]] = r.D[k]; this.sd[this.depth - 1] = r.D[k]; this.cnt[1]++; break;
+      case ERASE: this.board[r.C[k]] = 0; this.cnt[2]++; break;
+      case DEAD: this.depth--; this.cnt[3]++; break;
+    }
+    this.pos = k + 1;
+  }
+  seek(p) {
+    p = Math.max(0, Math.min(this.run.len, p | 0));
+    if (!(p >= this.pos && p - this.pos < this.K)) this.restore(Math.floor(p / this.K));
+    while (this.pos < p) this.apply(this.pos);
+  }
+  get atEnd() { return this.pos >= this.run.len; }
+}
+
+/* =========================================================
+   Text: narration for the current action
+   ========================================================= */
+function unitOf(G, i, a) {
+  if (G.row[a] === G.row[i]) return 'row';
+  if (G.col[a] === G.col[i]) return 'col';
+  return 'box';
+}
+const UNIT_LONG = { row: 'в этой строке', col: 'в этом столбце' };
+const UNIT_SHORT = { row: 'строка', col: 'столбец', box: 'квадрат' };
+
+function narrate(rp) {
+  const run = rp.run, N = run.N, G = geo(N), k = rp.pos - 1;
+  const B = G.B;
+  if (rp.atEnd && run.capped) {
+    return { k: 'capped', html: `Запись остановлена на лимите ${fmt(CAP)} шагов, а решение ещё не найдено. Перебору по порядку здесь понадобилось бы около 830 миллионов шагов. Переключите стратегию на «С наименьшим числом кандидатов».` };
+  }
+  if (k < 0) {
+    return { k: 'start', html: `Исходная позиция. Дано цифр: ${run.givens}, пустых клеток: ${run.empties}. Нажмите «Шаг», чтобы сделать одно действие, или «Пуск».` };
+  }
+  const t = run.T[k], i = run.C[k], d = run.D[k], a = run.A[k];
+  const c = cn(i, N);
+  switch (t) {
+    case SELECT:
+      if (run.mode === 'mrv') {
+        return { k: 'select', html: a === 0
+          ? `Ищем пустую клетку с наименьшим числом кандидатов: ${c}. Кандидатов у неё нет — тупик неизбежен. Глубина рекурсии: ${rp.depth}.`
+          : `Ищем пустую клетку с наименьшим числом кандидатов: ${c}, кандидатов — ${a}. Новый вызов solve(), глубина рекурсии: ${rp.depth}.` };
+      }
+      return { k: 'select', html: `Ищем первую пустую клетку, двигаясь по строкам: это ${c}. Новый вызов solve(), глубина рекурсии: ${rp.depth}. Будем пробовать цифры 1–${N}.` };
+    case REJECT: {
+      const u = unitOf(G, i, a);
+      const where = u === 'box' ? `в этом квадрате ${B}×${B}` : UNIT_LONG[u];
+      return { k: 'reject', html: `Пробуем <b>${d}</b> в клетке ${c}: нельзя, ${d} уже стоит ${where} — в клетке ${cn(a, N)}.` };
+    }
+    case PLACE:
+      return { k: 'place', html: `Пробуем <b>${d}</b> в клетке ${c}: в строке, столбце и квадрате такой цифры нет. Ставим её и спускаемся глубже.` };
+    case ERASE:
+      return { k: 'erase', html: d === N
+        ? `Ветка «${d} в ${c}» зашла в тупик. Стираем ${d}. Цифр больше не осталось.`
+        : `Ветка «${d} в ${c}» зашла в тупик. Стираем ${d} — это и есть откат — и пробуем следующую цифру.` };
+    case DEAD:
+      if (rp.depth > 0) {
+        const j = rp.depth - 1;
+        return { k: 'dead', html: `В клетке ${c} не подошла ни одна цифра от 1 до ${N}. solve() возвращает False — возвращаемся к клетке ${cn(rp.sc[j], N)}, где стоит ${rp.sd[j]}.` };
+      }
+      return { k: 'dead', html: `В клетке ${c} не подошла ни одна цифра, а возвращаться больше некуда: все варианты перебраны. У этой головоломки нет решения.` };
+    case SOLVED:
+      return { k: 'solved', html: `Пустых клеток не осталось — судоку решено! Понадобилось ${fmt(run.len)} шагов, из них откатов: ${fmt(rp.cnt[2])}.` };
+  }
+  return { k: 'start', html: '' };
+}
+
+function shortLine(run, k) {
+  const N = run.N, G = geo(N), t = run.T[k], i = run.C[k], d = run.D[k], a = run.A[k];
+  switch (t) {
+    case SELECT: return ['select', `клетка ${cn(i, N)}`];
+    case REJECT: return ['reject', `${d} × ${cn(i, N)} — занято: ${UNIT_SHORT[unitOf(G, i, a)]}`];
+    case PLACE: return ['place', `${d} → ${cn(i, N)}`];
+    case ERASE: return ['erase', `стираем ${d} в ${cn(i, N)}`];
+    case DEAD: return ['dead', `тупик в ${cn(i, N)}, return False`];
+    case SOLVED: return ['solved', 'решено, return True'];
+  }
+  return ['start', ''];
+}
+
+/* =========================================================
+   Board component
+   ========================================================= */
+function makeBoard(host, N, { buttons = false } = {}) {
+  const G = geo(N);
+  const wrap = document.createElement('div');
+  wrap.className = 'bwrap';
+  wrap.style.setProperty('--n', N);
+  let lt = '<div class="lt" aria-hidden="true">', ll = '<div class="ll" aria-hidden="true">';
+  for (let k = 1; k <= N; k++) { lt += `<span>${k}</span>`; ll += `<span>${k}</span>`; }
+  wrap.innerHTML = lt + '</div>' + ll + '</div>';
+  const board = document.createElement('div');
+  board.className = 'board';
+  board.style.setProperty('--n', N);
+  const cells = [], base = [];
+  for (let i = 0; i < G.NN; i++) {
+    const r = G.row[i], c = G.col[i];
+    const el = document.createElement(buttons ? 'button' : 'div');
+    if (buttons) { el.type = 'button'; el.tabIndex = -1; }
+    let b = 'cell';
+    if (c === N - 1) b += ' xr'; else if (c % G.B === G.B - 1) b += ' br';
+    if (r === N - 1) b += ' xb'; else if (r % G.B === G.B - 1) b += ' bb';
+    el.className = b;
+    el.dataset.i = i;
+    const v = document.createElement('span');
+    v.className = 'v';
+    el.appendChild(v);
+    el.v = v;
+    board.appendChild(el);
+    cells.push(el); base.push(b);
+  }
+  wrap.appendChild(board);
+  host.appendChild(wrap);
+  return { wrap, el: board, cells, base, N, G };
+}
+
+function paintRun(bd, rp, animate) {
+  const run = rp.run, G = bd.G, k = rp.pos - 1;
+  const t = k >= 0 ? run.T[k] : 0;
+  const ci = k >= 0 && t !== SOLVED ? run.C[k] : -1;
+  const d = k >= 0 ? run.D[k] : 0, a = k >= 0 ? run.A[k] : 0;
+  let unit = null;
+  if (t === REJECT) unit = unitOf(G, ci, a);
+  const tintAll = t === SELECT || t === PLACE;
+  bd.el.classList.toggle('anim', !!animate);
+  for (let i = 0; i < G.NN; i++) {
+    const cell = bd.cells[i], v = rp.board[i], given = run.cells[i] !== 0;
+    let cls = bd.base[i] + (given ? ' given' : v ? ' placed' : '');
+    let txt = v ? String(v) : '';
+    if (ci >= 0) {
+      if (tintAll && i !== ci && (G.row[i] === G.row[ci] || G.col[i] === G.col[ci] || G.box[i] === G.box[ci])) cls += ' peer';
+      if (unit && i !== ci && (unit === 'row' ? G.row[i] === G.row[ci] : unit === 'col' ? G.col[i] === G.col[ci] : G.box[i] === G.box[ci])) cls += ' bad';
+      if (i === ci) {
+        cls += ' cur';
+        if (t === REJECT) { cls += ' reject'; txt = String(d); }
+        else if (t === ERASE) { cls += ' erase'; txt = String(d); }
+        else if (t === DEAD) cls += ' dead';
+        else if (t === PLACE) cls += ' place';
+      }
+      if (t === REJECT && i === a) cls += ' clash';
+    }
+    if (t === SOLVED && !given) cls += ' win';
+    if (cell.className !== cls) cell.className = cls;
+    if (cell.v.textContent !== txt) cell.v.textContent = txt;
+  }
+}
+
+function setNarr(el, rp) {
+  const n = narrate(rp);
+  el.dataset.k = n.k;
+  el.innerHTML = `<span class="tag" data-k="${n.k}">${TAG[n.k]}</span><p>${n.html}</p>`;
+  return n.k;
+}
+
+const ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg>';
+function setPlayBtn(btn, playing, atEnd) {
+  btn.innerHTML = playing ? ICON_PAUSE + '<span>Пауза</span>' : ICON_PLAY + `<span>${atEnd ? 'Заново' : 'Пуск'}</span>`;
+}
+
+/* =========================================================
+   Player: timing loop shared by both visualizers
+   ========================================================= */
+function makePlayer(getRp, getSpeed, render) {
+  const P = { playing: false, last: 0, acc: 0 };
+  function frame(now) {
+    if (!P.playing) return;
+    const dt = Math.min(0.1, (now - P.last) / 1000);
+    P.last = now;
+    P.acc += dt * getSpeed();
+    let n = Math.floor(P.acc);
+    P.acc -= n;
+    const rp = getRp();
+    while (n-- > 0 && !rp.atEnd) rp.apply(rp.pos);
+    if (rp.atEnd) P.playing = false;
+    render();
+    if (P.playing) requestAnimationFrame(frame);
+  }
+  P.play = () => {
+    const rp = getRp();
+    if (rp.atEnd) rp.seek(0);
+    P.playing = true; P.last = performance.now(); P.acc = 1;
+    requestAnimationFrame(frame);
+    render();
+  };
+  P.pause = () => { P.playing = false; render(); };
+  P.toggle = () => (P.playing ? P.pause() : P.play());
+  return P;
+}
+
+/* =========================================================
+   Code blocks
+   ========================================================= */
+const KW = new Set('def return if for in None True False not and or else elif while const let function null true false of continue'.split(' '));
+const BI = new Set('range any sum print len console Math'.split(' '));
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function hl(line, lang) {
+  const re = lang === 'py'
+    ? /(#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\b\d+\b)|([A-Za-z_]\w*)/g
+    : /(\/\/.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\b\d+\b)|([A-Za-z_$][\w$]*)/g;
+  let out = '', last = 0, m;
+  while ((m = re.exec(line))) {
+    out += esc(line.slice(last, m.index));
+    if (m[1]) out += `<span class="t-com">${esc(m[1])}</span>`;
+    else if (m[2]) out += `<span class="t-str">${esc(m[2])}</span>`;
+    else if (m[3]) out += `<span class="t-num">${m[3]}</span>`;
+    else {
+      const w = m[4], next = line[re.lastIndex];
+      if (KW.has(w)) out += `<span class="t-kw">${w}</span>`;
+      else if (BI.has(w)) out += `<span class="t-bi">${w}</span>`;
+      else if (next === '(') out += `<span class="t-fn">${w}</span>`;
+      else out += w;
+    }
+    last = re.lastIndex;
+  }
+  return out + esc(line.slice(last));
+}
+
+const SOLVE = {
+  py: [
+    ['def solve(board):'],
+    ['    cell = find_empty(board)', 'find'],
+    ['    if cell is None:', 'done'],
+    ['        return True              # пустых клеток нет — решено', 'done'],
+    ['    r, c = cell'],
+    ['    for d in range(1, 10):', 'loop'],
+    ['        if is_valid(board, r, c, d):', 'check'],
+    ['            board[r][c] = d      # пробуем цифру', 'place'],
+    ['            if solve(board):     # решаем остальное', 'recurse'],
+    ['                return True', 'recurse'],
+    ['            board[r][c] = 0      # тупик — откат', 'erase'],
+    ['    return False                 # ни одна цифра не подошла', 'fail'],
+  ],
+  js: [
+    ['function solve(board) {'],
+    ['  const cell = findEmpty(board);', 'find'],
+    ['  if (cell === null) return true;      // пустых клеток нет — решено', 'done'],
+    ['  const [r, c] = cell;'],
+    ['  for (let d = 1; d <= 9; d++) {', 'loop'],
+    ['    if (isValid(board, r, c, d)) {', 'check'],
+    ['      board[r][c] = d;                 // пробуем цифру', 'place'],
+    ['      if (solve(board)) return true;   // решаем остальное', 'recurse'],
+    ['      board[r][c] = 0;                 // тупик — откат', 'erase'],
+    ['    }'],
+    ['  }'],
+    ['  return false;                        // ни одна цифра не подошла', 'fail'],
+    ['}'],
+  ],
+};
+const FIND_BEST = {
+  py: '    cell = find_best(board)      # меньше всего кандидатов',
+  js: '  const cell = findBest(board);        // меньше всего кандидатов',
+};
+const STEP_OF = { find: 1, done: 1, loop: 2, check: 3, place: 4, recurse: 4, erase: 5, fail: 5 };
+
+const BEST = {
+  py: `def find_best(board):
+    """Пустая клетка с наименьшим числом кандидатов."""
+    best, best_count = None, 10
+    for r in range(9):
+        for c in range(9):
+            if board[r][c] == 0:
+                n = sum(is_valid(board, r, c, d) for d in range(1, 10))
+                if n < best_count:
+                    best, best_count = (r, c), n
+                    if n == 0:
+                        return best          # тупик виден сразу
+    return best`,
+  js: `function findBest(board) {
+  let best = null, bestCount = 10;
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++) {
+      if (board[r][c] !== 0) continue;
+      let n = 0;
+      for (let d = 1; d <= 9; d++) if (isValid(board, r, c, d)) n++;
+      if (n < bestCount) {
+        best = [r, c]; bestCount = n;
+        if (n === 0) return best;          // тупик виден сразу
+      }
+    }
+  return best;
+}`,
+};
+
+const FULL = {
+  py: `def find_empty(board):
+    """Первая пустая клетка при обходе по строкам или None."""
+    for r in range(9):
+        for c in range(9):
+            if board[r][c] == 0:
+                return r, c
+    return None
+
+
+def is_valid(board, r, c, d):
+    """Можно ли поставить цифру d в клетку (r, c)?"""
+    if d in board[r]:                                # строка
+        return False
+    if any(board[i][c] == d for i in range(9)):      # столбец
+        return False
+    br, bc = 3 * (r // 3), 3 * (c // 3)              # угол квадрата 3×3
+    for i in range(br, br + 3):
+        for j in range(bc, bc + 3):
+            if board[i][j] == d:
+                return False
+    return True
+
+
+def solve(board):
+    cell = find_empty(board)
+    if cell is None:
+        return True              # пустых клеток нет — решено
+    r, c = cell
+    for d in range(1, 10):
+        if is_valid(board, r, c, d):
+            board[r][c] = d      # пробуем цифру
+            if solve(board):     # решаем остальное
+                return True
+            board[r][c] = 0      # тупик — откат
+    return False                 # ни одна цифра не подошла
+
+
+board = [
+    [0, 0, 3, 0, 2, 0, 6, 0, 0],
+    [9, 0, 0, 3, 0, 5, 0, 0, 1],
+    [0, 0, 1, 8, 0, 6, 4, 0, 0],
+    [0, 0, 8, 1, 0, 2, 9, 0, 0],
+    [7, 0, 0, 0, 0, 0, 0, 0, 8],
+    [0, 0, 6, 7, 0, 8, 2, 0, 0],
+    [0, 0, 2, 6, 0, 9, 5, 0, 0],
+    [8, 0, 0, 2, 0, 3, 0, 0, 9],
+    [0, 0, 5, 0, 1, 0, 3, 0, 0],
+]
+
+if solve(board):
+    for row in board:
+        print(*row)
+else:
+    print("Решения нет")`,
+  js: `function findEmpty(board) {
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (board[r][c] === 0) return [r, c];
+  return null;
+}
+
+function isValid(board, r, c, d) {
+  if (board[r].includes(d)) return false;              // строка
+  if (board.some(row => row[c] === d)) return false;   // столбец
+  const br = 3 * Math.floor(r / 3), bc = 3 * Math.floor(c / 3);
+  for (let i = br; i < br + 3; i++)                    // квадрат 3×3
+    for (let j = bc; j < bc + 3; j++)
+      if (board[i][j] === d) return false;
+  return true;
+}
+
+function solve(board) {
+  const cell = findEmpty(board);
+  if (cell === null) return true;      // пустых клеток нет — решено
+  const [r, c] = cell;
+  for (let d = 1; d <= 9; d++) {
+    if (isValid(board, r, c, d)) {
+      board[r][c] = d;                 // пробуем цифру
+      if (solve(board)) return true;   // решаем остальное
+      board[r][c] = 0;                 // тупик — откат
+    }
+  }
+  return false;                        // ни одна цифра не подошла
+}
+
+const board = [
+  [0, 0, 3, 0, 2, 0, 6, 0, 0],
+  [9, 0, 0, 3, 0, 5, 0, 0, 1],
+  [0, 0, 1, 8, 0, 6, 4, 0, 0],
+  [0, 0, 8, 1, 0, 2, 9, 0, 0],
+  [7, 0, 0, 0, 0, 0, 0, 0, 8],
+  [0, 0, 6, 7, 0, 8, 2, 0, 0],
+  [0, 0, 2, 6, 0, 9, 5, 0, 0],
+  [8, 0, 0, 2, 0, 3, 0, 0, 9],
+  [0, 0, 5, 0, 1, 0, 3, 0, 0],
+];
+
+if (solve(board)) console.log(board.map(row => row.join(' ')).join('\\n'));
+else console.log('Решения нет');`,
+};
+
+let LANG = 'py';
+try { if (localStorage.getItem('bt-lang') === 'js') LANG = 'js'; } catch (e) { /* storage unavailable */ }
+const LANG_NAME = { py: 'Python', js: 'JavaScript' };
+
+function solveLines(lang, mode) {
+  return SOLVE[lang].map(([text, id]) => [id === 'find' && mode === 'mrv' ? FIND_BEST[lang] : text, id]);
+}
+function renderLines(pre, lines, gutter) {
+  pre.innerHTML = lines.map(([text, id], n) => {
+    const g = gutter === 'step'
+      ? (id && STEP_OF[id] && (n === 0 || STEP_OF[lines[n - 1][1]] !== STEP_OF[id]) ? `<span class="st">${STEP_OF[id]}</span>` : '')
+      : String(n + 1);
+    return `<span class="ln"${id ? ` data-id="${id}"` : ''}><span class="gut">${g}</span>${hl(text, LANG)}</span>`;
+  }).join('');
+}
+function renderCode() {
+  document.querySelectorAll('[data-code]').forEach(pre => {
+    const kind = pre.dataset.code;
+    if (kind === 'steps') renderLines(pre, solveLines(LANG, 'naive'), 'step');
+    else if (kind === 'lab') renderLines(pre, solveLines(LANG, lab.mode), 'num');
+    else if (kind === 'best') renderLines(pre, BEST[LANG].split('\n').map(t => [t]), 'num');
+    else if (kind === 'full') renderLines(pre, FULL[LANG].split('\n').map(t => [t]), 'num');
+  });
+  document.querySelectorAll('[data-tabs]').forEach(tl => {
+    tl.innerHTML = ['py', 'js'].map(l => `<button type="button" role="tab" aria-selected="${l === LANG}" data-lang="${l}">${LANG_NAME[l]}</button>`).join('');
+  });
+  if (lab.rp) paintLab();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-lang]');
+  if (!b || b.dataset.lang === LANG) return;
+  LANG = b.dataset.lang;
+  try { localStorage.setItem('bt-lang', LANG); } catch (err) { /* storage unavailable */ }
+  renderCode();
+});
+
+/* =========================================================
+   1. Rules board
+   ========================================================= */
+const rules = { sel: 40, marks: false };
+{
+  const src = PUZZLES.medium.src.split('').map(Number);
+  const G = geo(9);
+  const bd = makeBoard(document.getElementById('rules-board'), 9, { buttons: true });
+  const board = Uint8Array.from(src);
+  const $title = document.getElementById('ins-title');
+  const $why = document.getElementById('ins-why');
+  const $digits = document.getElementById('ins-digits');
+  const $verdict = document.getElementById('ins-verdict');
+  const present = u => [...new Set(u.map(j => board[j]).filter(Boolean))];
+  const cands = i => { const out = []; for (let d = 1; d <= 9; d++) if (conflict(board, G, i, d) < 0) out.push(d); return out; };
+
+  function paint() {
+    const s = rules.sel;
+    for (let i = 0; i < 81; i++) {
+      const cell = bd.cells[i], v = board[i];
+      let cls = bd.base[i] + (v ? ' given' : '');
+      if (i === s) cls += ' sel';
+      else if (G.row[i] === G.row[s] || G.col[i] === G.col[s] || G.box[i] === G.box[s]) cls += ' peer';
+      cell.className = cls;
+      cell.tabIndex = i === s ? 0 : -1;
+      const old = cell.querySelector('.pm');
+      if (old) old.remove();
+      cell.v.textContent = v ? String(v) : '';
+      if (!v && rules.marks) {
+        const cs = cands(i), pm = document.createElement('span');
+        pm.className = 'pm';
+        pm.innerHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<span>${cs.includes(d) ? d : ''}</span>`).join('');
+        cell.appendChild(pm);
+      }
+      cell.setAttribute('aria-label', `Клетка ${cn(i, 9)}${v ? ', цифра ' + v : ', пустая'}`);
+    }
+    const r = G.row[s], c = G.col[s];
+    $title.textContent = `Клетка ${cn(s, 9)}`;
+    const inRow = present(G.rows[r]), inCol = present(G.cols[c]), inBox = present(G.boxes[G.box[s]]);
+    const show = a => a.length ? a.join(' ') : '—';
+    $why.innerHTML =
+      `<div><dt>В строке ${r + 1}</dt><dd>${show(inRow)}</dd></div>` +
+      `<div><dt>В столбце ${c + 1}</dt><dd>${show(inCol)}</dd></div>` +
+      `<div><dt>В квадрате</dt><dd>${show(inBox)}</dd></div>`;
+    if (board[s]) {
+      $digits.innerHTML = '';
+      $verdict.textContent = `Цифра ${board[s]} дана в условии. Выберите пустую клетку, чтобы посчитать кандидатов.`;
+      return;
+    }
+    const cs = cands(s);
+    $digits.innerHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<span class="${cs.includes(d) ? 'yes' : 'no'}">${d}</span>`).join('');
+    $verdict.textContent = cs.length === 0
+      ? 'Кандидатов нет: в правильной позиции так быть не может, значит, где-то раньше ошибка.'
+      : cs.length === 1
+        ? `Кандидат один — ${cs[0]}. Здесь угадывать не нужно.`
+        : `Кандидатов ${cs.length}: ${cs.join(', ')}. Какой из них верный, заранее не ясно — здесь и понадобится перебор.`;
+  }
+  bd.el.addEventListener('click', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    rules.sel = +cell.dataset.i;
+    paint();
+  });
+  bd.el.addEventListener('keydown', e => {
+    const mv = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (mv === undefined) return;
+    e.preventDefault();
+    const s = rules.sel, r = G.row[s], c = G.col[s];
+    if ((mv === -1 && c === 0) || (mv === 1 && c === 8) || (mv === -9 && r === 0) || (mv === 9 && r === 8)) return;
+    rules.sel = s + mv;
+    paint();
+    bd.cells[rules.sel].focus();
+  });
+  document.getElementById('pm-toggle').addEventListener('change', e => { rules.marks = e.target.checked; paint(); });
+  paint();
+}
+
+/* =========================================================
+   2. Mini 4×4 with search tree
+   ========================================================= */
+const mini = {};
+{
+  const N = 4, G = geo(N);
+  const cells = MINI.split('').map(Number);
+  const run = record(cells, N, 'naive');
+  const rp = new Replay(run);
+  const bd = makeBoard(document.getElementById('mini-board'), N);
+  const $narr = document.getElementById('mini-narr');
+  const $counter = document.getElementById('mini-counter');
+  const $play = document.getElementById('mini-play');
+  const svg = document.getElementById('tree');
+  const NS = 'http://www.w3.org/2000/svg';
+  const empties = []; for (let i = 0; i < G.NN; i++) if (!cells[i]) empties.push(i);
+  const levelOf = new Int8Array(G.NN).fill(-1);
+  empties.forEach((c, L) => { levelOf[c] = L + 1; });
+
+  // Build the tree from the recorded actions.
+  const nodes = [{ id: 0, parent: -1, level: 0, kind: 'root', born: -1, died: Infinity, children: [] }];
+  let cur = 0, solvedAt = Infinity;
+  const frames = [];
+  for (let k = 0; k < run.len; k++) {
+    const t = run.T[k];
+    const add = (kind, extra) => {
+      const n = Object.assign({ id: nodes.length, parent: cur, level: nodes[cur].level + 1, kind, born: k, died: Infinity, children: [] }, extra);
+      nodes.push(n); nodes[cur].children.push(n.id);
+      return n;
+    };
+    if (t === SELECT) frames.push(0);
+    else if (t === PLACE) { frames[frames.length - 1]++; cur = add('place', { digit: run.D[k], cell: run.C[k] }).id; }
+    else if (t === ERASE) { nodes[cur].died = k; cur = nodes[cur].parent; }
+    else if (t === DEAD) { if (!frames.pop()) add('x'); }
+    else if (t === SOLVED) { add('ok'); solvedAt = k; }
+  }
+  let leaves = 0, maxLevel = 0;
+  (function lay(id) {
+    const n = nodes[id];
+    maxLevel = Math.max(maxLevel, n.level);
+    if (!n.children.length) { n.x = leaves++; return; }
+    n.children.forEach(lay);
+    n.x = (nodes[n.children[0]].x + nodes[n.children[n.children.length - 1]].x) / 2;
+  })(0);
+
+  const colW = 50, rowH = 33, labW = 62, padT = 20, padB = 18;
+  const W = labW + leaves * colW + 10, Hh = padT + maxLevel * rowH + padB;
+  svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', Hh);
+  const px = n => labW + (n.x + 0.5) * colW, py = L => padT + L * rowH;
+  const mk = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+  const gBands = mk('g', {}, svg), gEdges = mk('g', {}, svg), gNodes = mk('g', {}, svg);
+  const bands = [], labels = [];
+  for (let L = 0; L <= empties.length; L++) {
+    bands.push(mk('rect', { class: 'band', x: 0, y: py(L) - rowH / 2, width: W, height: rowH, rx: 4 }, gBands));
+    const t = mk('text', { class: 'rowlab', x: 6, y: py(L), 'dominant-baseline': 'central' }, gBands);
+    t.textContent = L === 0 ? 'старт' : cn(empties[L - 1], N);
+    labels.push(t);
+  }
+  for (const n of nodes) {
+    if (n.parent >= 0) {
+      const p = nodes[n.parent], x1 = px(p), y1 = py(p.level), x2 = px(n), y2 = py(n.level);
+      const ym = (y1 + y2) / 2;
+      n.edge = mk('path', { class: 'edge', d: `M${x1},${y1 + 13} C${x1},${ym} ${x2},${ym} ${x2},${y2 - 13}` }, gEdges);
+    }
+    const g = mk('g', { class: n.kind === 'x' || n.kind === 'ok' ? 'mark ' + n.kind : 'node ' + n.kind, transform: `translate(${px(n)},${py(n.level)})` }, gNodes);
+    if (n.kind === 'x' || n.kind === 'ok') {
+      mk('rect', { x: -11, y: -11, width: 22, height: 22, rx: 5 }, g);
+      const t = mk('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', y: 1 }, g);
+      t.textContent = n.kind === 'x' ? '×' : '✓';
+    } else {
+      mk('circle', { r: n.kind === 'root' ? 16 : 13 }, g);
+      const t = mk('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', y: n.kind === 'root' ? 0 : 1 }, g);
+      t.textContent = n.kind === 'root' ? 'root' : String(n.digit);
+    }
+    n.g = g;
+  }
+
+  function paintTree() {
+    const p = rp.pos, won = p > solvedAt;
+    let top = nodes[0];
+    for (const n of nodes) if (n.kind === 'place' && n.born < p && n.died >= p && n.level > top.level) top = n;
+    const onPath = new Set();
+    for (let n = top; n; n = n.parent >= 0 ? nodes[n.parent] : null) onPath.add(n.id);
+    for (const n of nodes) {
+      if (n.kind === 'root') { n.g.setAttribute('class', 'node root'); continue; }
+      const seen = n.born < p, dead = n.died < p;
+      let s;
+      if (n.kind === 'x' || n.kind === 'ok') s = 'mark ' + n.kind + (seen ? ' on' : '');
+      else s = 'node' + (!seen ? '' : dead ? ' dead' : won ? ' won' : ' on') + (seen && !dead && n === top && !won ? ' cur' : '');
+      n.g.setAttribute('class', s);
+      const es = !seen ? 'edge' : dead || n.kind === 'x' ? 'edge dead' : (won && onPath.has(n.id)) || (won && n.kind === 'ok') ? 'edge won' : 'edge on';
+      n.edge.setAttribute('class', es);
+    }
+    const k = p - 1, t = k >= 0 ? run.T[k] : 0;
+    const L = k >= 0 && t !== SOLVED ? levelOf[run.C[k]] : -1;
+    bands.forEach((b, j) => b.setAttribute('class', j === L ? 'band on' : 'band'));
+    labels.forEach((b, j) => b.setAttribute('class', j === L ? 'rowlab on' : 'rowlab'));
+  }
+
+  function render() {
+    paintRun(bd, rp, !reduceMotion);
+    setNarr($narr, rp);
+    paintTree();
+    $counter.textContent = `шаг ${rp.pos} из ${run.len}`;
+    setPlayBtn($play, player.playing, rp.atEnd);
+  }
+  const player = makePlayer(() => rp, () => 2.5, render);
+  $play.addEventListener('click', player.toggle);
+  document.getElementById('mini-step').addEventListener('click', () => { player.pause(); rp.seek(rp.pos + 1); render(); });
+  document.getElementById('mini-back').addEventListener('click', () => { player.pause(); rp.seek(rp.pos - 1); render(); });
+  document.getElementById('mini-reset').addEventListener('click', () => { player.pause(); rp.seek(0); render(); });
+  render();
+  Object.assign(mini, { render });
+}
+
+/* =========================================================
+   3. Step list ↔ code lines
+   ========================================================= */
+{
+  const list = document.getElementById('steps-list');
+  const light = li => {
+    const pre = document.querySelector('[data-code="steps"]');
+    const ids = li ? li.dataset.ids.split(' ') : [];
+    pre.querySelectorAll('.ln').forEach(ln => ln.classList.toggle('lit', ids.includes(ln.dataset.id)));
+    list.querySelectorAll('li').forEach(x => x.classList.toggle('lit', x === li));
+  };
+  list.addEventListener('mouseover', e => light(e.target.closest('li')));
+  list.addEventListener('focusin', e => light(e.target.closest('li')));
+  list.addEventListener('mouseleave', () => light(null));
+  list.addEventListener('focusout', () => light(null));
+}
+
+/* =========================================================
+   4. Main lab
+   ========================================================= */
+const lab = { key: 'easy', mode: 'naive', custom: null, run: null, rp: null, speedV: 21 };
+const $ = id => document.getElementById(id);
+const labBoard = makeBoard($('lab-board'), 9);
+const $labNarr = $('lab-narr'), $hist = $('lab-hist'), $stats = $('lab-stats'), $stack = $('lab-stack');
+const $labPlay = $('lab-play'), $counter = $('lab-counter'), $speedOut = $('lab-speed-out'), $tl = $('timeline');
+
+const speedOf = v => Math.max(1, Math.round(10 ** (v / 100 * 4.7)));
+$('puz-pills').innerHTML = Object.entries(PUZZLES).map(([k, p]) => `<button type="button" data-key="${k}" aria-pressed="${k === lab.key}">${p.name}</button>`).join('') +
+  '<button type="button" data-key="custom" aria-pressed="false">Своя…</button>';
+
+$stats.innerHTML = [
+  ['s-step', 'Шаг'], ['s-depth', 'Глубина'], ['s-place', 'Поставлено'], ['s-rej', 'Конфликтов'], ['s-erase', 'Откатов'],
+].map(([id, t]) => `<div><dt>${t}</dt><dd id="${id}"></dd></div>`).join('');
+const S = { step: $('s-step'), depth: $('s-depth'), place: $('s-place'), rej: $('s-rej'), erase: $('s-erase') };
+
+/* --- Timeline: recursion depth over the whole run --- */
+const tl = { canvas: $('tl-canvas'), faint: document.createElement('canvas'), solid: document.createElement('canvas'), w: 0, h: 0, dpr: 1 };
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function buildTimeline() {
+  const run = lab.run; if (!run) return;
+  const rect = tl.canvas.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(50, Math.round(rect.width * dpr)), h = Math.round(96 * dpr);
+  tl.w = w; tl.h = h; tl.dpr = dpr;
+  for (const c of [tl.canvas, tl.faint, tl.solid]) { c.width = w; c.height = h; }
+  const maxD = Math.max(1, run.empties), top = 22 * dpr, bot = 20 * dpr;
+  const y = d => h - bot - (d / maxD) * (h - top - bot);
+  const hi = new Float32Array(w);
+  for (let x = 0; x < w; x++) {
+    const s = Math.floor(x * run.len / w), e = Math.max(s + 1, Math.floor((x + 1) * run.len / w));
+    let m = 0;
+    for (let k = s; k < e && k < run.len; k++) if (run.H[k] > m) m = run.H[k];
+    hi[x] = m;
+  }
+  const draw = (ctx, stroke, fill, gridc) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = gridc; ctx.lineWidth = 1; ctx.setLineDash([2 * dpr, 3 * dpr]);
+    ctx.beginPath(); ctx.moveTo(0, Math.round(y(maxD)) + .5); ctx.lineTo(w, Math.round(y(maxD)) + .5); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(0, y(0));
+    for (let x = 0; x < w; x++) ctx.lineTo(x, y(hi[x]));
+    ctx.lineTo(w, y(0)); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.beginPath();
+    for (let x = 0; x < w; x++) x ? ctx.lineTo(x, y(hi[x])) : ctx.moveTo(x, y(hi[x]));
+    ctx.strokeStyle = stroke; ctx.lineWidth = 1.5 * dpr; ctx.lineJoin = 'round'; ctx.stroke();
+  };
+  const blue = cssVar('--blue'), ink3 = cssVar('--ink-3'), rule = cssVar('--rule');
+  const fctx = tl.faint.getContext('2d');
+  fctx.globalAlpha = 1;
+  draw(fctx, rule, 'rgba(128,140,160,.10)', rule);
+  const sctx = tl.solid.getContext('2d');
+  draw(sctx, blue, hexA(blue, .16), rule);
+  tl.ink = cssVar('--ink'); tl.ink3 = ink3;
+  $('tl-total').textContent = `${fmt(run.len)}${run.capped ? '+' : ''} шагов`;
+  $tl.setAttribute('aria-valuemax', run.len);
+  drawTimeline();
+}
+function hexA(hex, a) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return `rgba(30,68,200,${a})`;
+  const n = parseInt(m[1], 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function drawTimeline() {
+  const { w, h, dpr } = tl; if (!w || !lab.rp) return;
+  const ctx = tl.canvas.getContext('2d');
+  const run = lab.run, p = lab.rp.pos;
+  const x = run.len ? Math.round(p / run.len * w) : 0;
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(tl.faint, 0, 0);
+  if (x > 0) ctx.drawImage(tl.solid, 0, 0, x, h, 0, 0, x, h);
+  ctx.fillStyle = tl.ink;
+  ctx.fillRect(Math.min(w - 2 * dpr, x), 0, 2 * dpr, h);
+  $tl.setAttribute('aria-valuenow', p);
+  $tl.setAttribute('aria-valuetext', `шаг ${p} из ${run.len}`);
+}
+new ResizeObserver(() => buildTimeline()).observe($tl);
+const rethemed = () => { buildTimeline(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rethemed);
+new MutationObserver(rethemed).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+function seekFromPointer(e) {
+  const r = $tl.getBoundingClientRect();
+  const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  labPlayer.playing = false;
+  lab.rp.seek(Math.round(f * lab.run.len));
+  paintLab();
+}
+$tl.addEventListener('pointerdown', e => { $tl.setPointerCapture(e.pointerId); seekFromPointer(e); });
+$tl.addEventListener('pointermove', e => { if ($tl.hasPointerCapture(e.pointerId)) seekFromPointer(e); });
+$tl.addEventListener('keydown', e => {
+  const len = lab.run.len, big = Math.max(1, Math.round(len / 50));
+  const to = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: big, PageDown: -big }[e.key];
+  let p = null;
+  if (to !== undefined) p = lab.rp.pos + to;
+  else if (e.key === 'Home') p = 0;
+  else if (e.key === 'End') p = len;
+  if (p === null) return;
+  e.preventDefault(); e.stopPropagation();
+  labPlayer.playing = false;
+  lab.rp.seek(p); paintLab();
+});
+
+/* --- Painting --- */
+function paintLab() {
+  const rp = lab.rp, run = lab.run;
+  const speed = speedOf(lab.speedV);
+  paintRun(labBoard, rp, speed <= 6 && !reduceMotion && labPlayer.playing || (!labPlayer.playing && !reduceMotion));
+  const k = setNarr($labNarr, rp);
+  $labNarr.setAttribute('aria-live', labPlayer.playing ? 'off' : 'polite');
+
+  // recent history
+  let h = '';
+  for (let j = Math.max(0, rp.pos - 6); j < rp.pos; j++) {
+    const [kk, txt] = shortLine(run, j);
+    h += `<li data-k="${kk}">${txt}</li>`;
+  }
+  $hist.innerHTML = h;
+
+  // stats
+  S.step.innerHTML = `${fmt(rp.pos)} <small>/ ${fmt(run.len)}${run.capped ? '+' : ''}</small>`;
+  S.depth.innerHTML = `${rp.depth} <small>/ ${run.empties}</small>`;
+  S.place.textContent = fmt(rp.cnt[1]);
+  S.rej.textContent = fmt(rp.cnt[0]);
+  S.erase.textContent = fmt(rp.cnt[2]);
+
+  // code line
+  const pre = $('lab-code');
+  const t = rp.pos > 0 ? run.T[rp.pos - 1] : 0;
+  const id = LINE[t] || null;
+  const kind = KIND[t];
+  pre.querySelectorAll('.ln').forEach(ln => {
+    const on = id && ln.dataset.id === id;
+    ln.classList.toggle('hot', !!on);
+    if (on) ln.dataset.k = kind; else delete ln.dataset.k;
+  });
+
+  // call stack
+  const d = rp.depth;
+  while ($stack.children.length < d) { const c = document.createElement('span'); c.className = 'chip'; $stack.appendChild(c); }
+  while ($stack.children.length > d) $stack.lastChild.remove();
+  for (let j = 0; j < d; j++) {
+    const c = $stack.children[j], dig = rp.sd[j];
+    const txt = dig ? String(dig) : '·';
+    if (c.textContent !== txt) c.textContent = txt;
+    const title = `solve() №${j + 1}: клетка ${cn(rp.sc[j], 9)}`;
+    if (c.title !== title) c.title = title;
+    const top = j === d - 1;
+    c.className = top ? 'chip top' : 'chip';
+    if (top) c.dataset.k = k === 'capped' ? 'start' : k; else delete c.dataset.k;
+  }
+
+  $counter.textContent = rp.atEnd ? (run.capped ? 'лимит записи' : run.solved ? 'готово' : 'решения нет') : '';
+  setPlayBtn($labPlay, labPlayer.playing, rp.atEnd);
+  drawTimeline();
+}
+
+const labPlayer = makePlayer(() => lab.rp, () => speedOf(lab.speedV), () => paintLab());
+
+function loadLab() {
+  labPlayer.playing = false;
+  const src = lab.key === 'custom' ? lab.custom : PUZZLES[lab.key].src;
+  const cells = src.split('').map(Number);
+  lab.run = record(cells, 9, lab.mode);
+  lab.rp = new Replay(lab.run);
+  document.querySelectorAll('#puz-pills button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.key === lab.key)));
+  document.querySelectorAll('#mode-pills button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === lab.mode)));
+  renderLines($('lab-code'), solveLines(LANG, lab.mode), 'num');
+  buildTimeline();
+  paintLab();
+}
+
+/* --- Controls --- */
+$labPlay.addEventListener('click', () => labPlayer.toggle());
+$('lab-step').addEventListener('click', () => { labPlayer.playing = false; lab.rp.seek(lab.rp.pos + 1); paintLab(); });
+$('lab-back').addEventListener('click', () => { labPlayer.playing = false; lab.rp.seek(lab.rp.pos - 1); paintLab(); });
+$('lab-reset').addEventListener('click', () => { labPlayer.playing = false; lab.rp.seek(0); paintLab(); });
+$('lab-end').addEventListener('click', () => { labPlayer.playing = false; lab.rp.seek(lab.run.len); paintLab(); });
+const $speed = $('lab-speed');
+const showSpeed = () => { $speedOut.textContent = `${fmt(speedOf(lab.speedV))} шаг/с`; };
+$speed.addEventListener('input', () => { lab.speedV = +$speed.value; showSpeed(); });
+showSpeed();
+
+$('puz-pills').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const key = b.dataset.key;
+  $('custom').hidden = key !== 'custom';
+  if (key === 'custom') {
+    document.querySelectorAll('#puz-pills button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    $('custom-input').focus();
+    if (lab.custom) { lab.key = 'custom'; loadLab(); }
+    return;
+  }
+  lab.key = key; loadLab();
+});
+$('mode-pills').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  lab.mode = b.dataset.mode; loadLab();
+});
+
+function parseCustom(text) {
+  const s = text.replace(/\s+/g, '');
+  if (s.length !== 81) return { err: `Нужно ровно 81 символ, а сейчас ${s.length}.` };
+  if (!/^[0-9.]+$/.test(s)) return { err: 'Допустимы только цифры 1–9, а для пустых клеток — 0 или точка.' };
+  const cells = s.replace(/\./g, '0').split('').map(Number);
+  const G = geo(9);
+  for (let i = 0; i < 81; i++) {
+    if (!cells[i]) continue;
+    const d = cells[i]; cells[i] = 0;
+    const k = conflict(cells, G, i, d);
+    cells[i] = d;
+    if (k >= 0) return { err: `В условии цифра ${d} повторяется: клетки ${cn(k, 9)} и ${cn(i, 9)}.` };
+  }
+  return { src: cells.join('') };
+}
+function submitCustom() {
+  const r = parseCustom($('custom-input').value);
+  const $err = $('custom-err');
+  if (r.err) { $err.textContent = r.err; $err.hidden = false; return; }
+  $err.hidden = true;
+  lab.custom = r.src; lab.key = 'custom'; loadLab();
+}
+$('custom-go').addEventListener('click', submitCustom);
+$('custom-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitCustom(); });
+
+$('lab').addEventListener('keydown', e => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || e.target === $tl) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); labPlayer.playing = false; lab.rp.seek(lab.rp.pos + 1); paintLab(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); labPlayer.playing = false; lab.rp.seek(lab.rp.pos - 1); paintLab(); }
+  else if (e.key === ' ' && tag !== 'BUTTON') { e.preventDefault(); labPlayer.toggle(); }
+});
+$('lab').addEventListener('pointerdown', e => { if (!e.target.closest('button, input, .timeline')) $('lab').focus({ preventScroll: true }); });
+
+$('try-mrv').addEventListener('click', () => {
+  lab.key = 'medium'; lab.mode = 'mrv';
+  $('custom').hidden = true;
+  loadLab();
+  $('lab-sec').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+});
+
+renderCode();
+loadLab();
+})();
+</script>
+</body>
+</html>
